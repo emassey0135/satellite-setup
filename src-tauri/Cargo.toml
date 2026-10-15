@@ -1,0 +1,22 @@
+[package]
+name = "satellite-setup"
+version = "0.1.0"
+description = "Sets up Satellite on an Orbit Speak or Orbit Player from a computer"
+authors = ["Elijah Massey"]
+license = "Apache-2.0"
+edition = "2021"
+
+[lib]
+name = "satellite_setup_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = [] }
+tauri-plugin-dialog = "2.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "blocking"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }

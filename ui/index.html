@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Satellite Setup</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>Satellite Setup</h1>
+    <p>Sets up Satellite on an Orbit Speak or Orbit Player: the Satellite Launcher, the Satellite hook, and Backtalk
+      using the Orbit's keys. The Orbit does most of the work itself, restarting along the way, and says what it is
+      doing.</p>
+
+    <section aria-labelledby="connect-heading">
+      <h2 id="connect-heading">1. Connect the Orbit</h2>
+      <p>Connect the Orbit to this computer with a USB cable. It is found by itself.</p>
+      <p id="device-status" role="status">Getting Android's tools ready. The first time, they are downloaded.</p>
+      <div class="row">
+        <label for="device">Orbit</label>
+        <select id="device" disabled></select>
+      </div>
+      <button id="allow-usb" type="button" hidden>Let this computer use the Orbit over USB</button>
+      <details>
+        <summary>Connect with wireless debugging instead</summary>
+        <p>On the Orbit, under Developer options, Wireless debugging: choose Pair device with pairing code, and enter
+          the address and code it shows. Then enter the address shown under Wireless debugging itself, and connect.</p>
+        <div class="row">
+          <label for="pair-address">Pairing address and port</label>
+          <input id="pair-address" type="text" inputmode="url" autocomplete="off" placeholder="192.168.1.20:37099">
+        </div>
+        <div class="row">
+          <label for="pair-code">Pairing code</label>
+          <input id="pair-code" type="text" inputmode="numeric" autocomplete="off">
+        </div>
+        <button id="pair" type="button">Pair</button>
+        <div class="row">
+          <label for="connect-address">Address and port</label>
+          <input id="connect-address" type="text" inputmode="url" autocomplete="off" placeholder="192.168.1.20:41237">
+        </div>
+        <button id="connect" type="button">Connect</button>
+      </details>
+    </section>
+
+    <section aria-labelledby="choices-heading">
+      <h2 id="choices-heading">2. Choose what setup does</h2>
+      <div class="check">
+        <input id="google-play" type="checkbox" checked>
+        <label for="google-play">Turn on Google Play where it was turned off</label>
+      </div>
+      <div class="check">
+        <input id="turn-off-dnd" type="checkbox" checked>
+        <label for="turn-off-dnd">Turn off Do Not Disturb, which Orbit turns on</label>
+      </div>
+      <div class="row">
+        <label for="language">The Orbit's language</label>
+        <select id="language">
+          <option value="">Leave it as it is</option>
+          <option value="en-US">English (United States)</option>
+          <option value="en-GB">English (United Kingdom)</option>
+          <option value="en-CA">English (Canada)</option>
+          <option value="en-AU">English (Australia)</option>
+          <option value="en-NZ">English (New Zealand)</option>
+          <option value="en-IE">English (Ireland)</option>
+          <option value="en-ZA">English (South Africa)</option>
+          <option value="en-IN">English (India)</option>
+          <option value="other">Another language</option>
+        </select>
+      </div>
+      <div class="row" id="other-language-row" hidden>
+        <label for="other-language">Language tag, such as fr-FR</label>
+        <input id="other-language" type="text" autocomplete="off">
+      </div>
+      <fieldset>
+        <legend>Files from this computer to use instead of downloading them (you don't need any)</legend>
+        <div class="file" data-option="launcherApk" data-name="Satellite Launcher APK" data-ext="apk"></div>
+        <div class="file" data-option="hookApk" data-name="Satellite hook APK" data-ext="apk"></div>
+        <div class="file" data-option="backtalkApk" data-name="Backtalk APK" data-ext="apk"></div>
+        <div class="file" data-option="lsposedZip" data-name="LSPosed zip" data-ext="zip"></div>
+      </fieldset>
+    </section>
+
+    <section aria-labelledby="setup-heading">
+      <h2 id="setup-heading">3. Set up</h2>
+      <button id="set-up" type="button" disabled>Set up Satellite</button>
+      <p>Keep the Orbit connected until setup says it is complete. It says on the Orbit what to answer when it asks
+        something.</p>
+      <h3 id="progress-heading">Progress</h3>
+      <ol id="progress" aria-labelledby="progress-heading"></ol>
+    </section>
+
+    <section aria-labelledby="undo-heading">
+      <h2 id="undo-heading">Undo Satellite setup</h2>
+      <p>Puts the Orbit back as it was before Satellite was set up on it, and removes the Satellite Launcher.</p>
+      <button id="undo" type="button" disabled>Undo Satellite setup</button>
+    </section>
+  </main>
+  <!-- Messages for screen readers to say, without moving the focus (see announce in app.js). -->
+  <div id="announcer" class="visually-hidden" aria-live="polite"></div>
+</body>
+</html>
