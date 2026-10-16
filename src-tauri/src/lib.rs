@@ -5,6 +5,7 @@ mod adb;
 mod device;
 mod platform_tools;
 mod setup;
+pub mod usb_driver;
 
 use std::sync::Mutex;
 
@@ -108,11 +109,37 @@ async fn allow_usb() -> Result<String, String> {
     Err("Only Linux needs this.".into())
 }
 
+/// Whether Windows needs the WinUSB driver for a plugged-in device's adb interface (always false elsewhere).
+#[tauri::command]
+async fn usb_driver_needed() -> bool {
+    tauri::async_runtime::spawn_blocking(usb_driver::needed).await.unwrap_or(false)
+}
+
+/// Assigns Windows' WinUSB driver to the Orbit's adb interface, after Windows asks the user for permission.
+#[tauri::command]
+async fn install_usb_driver(tools: State<'_, Tools>) -> Result<String, String> {
+    let installed = tauri::async_runtime::spawn_blocking(usb_driver::install_elevated).await.map_err(|e| e.to_string())??;
+    if installed == 0 {
+        return Err("No device needed the driver.".into());
+    }
+    // adb notices the device by itself once it has a driver; restarting its server makes it look straight away.
+    if let Ok(adb) = tools.adb() {
+        tauri::async_runtime::spawn_blocking(move || {
+            adb.run(&["kill-server"]);
+            adb.run(&["start-server"]);
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    }
+    Ok("The USB driver is installed. Satellite Setup looks for the Orbit again.".into())
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Tools::default())
-        .invoke_handler(tauri::generate_handler![prepare, devices, pair, connect, set_up, undo, allow_usb])
+        .invoke_handler(tauri::generate_handler![prepare, devices, pair, connect, set_up, undo, allow_usb,
+            usb_driver_needed, install_usb_driver])
         .run(tauri::generate_context!())
         .expect("error while running Satellite Setup");
 }

@@ -70,7 +70,9 @@ async function refreshDevices() {
     setStatus(String(e));
     return;
   }
-  const summary = JSON.stringify(devices);
+  // On Windows, an Orbit plugged in without a driver doesn't show up at all, so it is looked for separately.
+  const needsDriver = devices.length === 0 && await invoke('usb_driver_needed').catch(() => false);
+  const summary = JSON.stringify(devices) + needsDriver;
   if (summary === shownDevices) return;
   shownDevices = summary;
   const select = $('device');
@@ -86,9 +88,13 @@ async function refreshDevices() {
   if (keep) select.value = keep.serial;
   select.disabled = devices.length === 0;
   $('allow-usb').hidden = !devices.some((d) => d.state === 'no permissions');
-  const text = devices.length === 0
-    ? 'No Orbit is connected yet. Connect it with a USB cable.'
-    : devices.length === 1 ? `Found: ${describe(devices[0])}.` : `Found ${devices.length} devices.`;
+  $('usb-driver').hidden = !needsDriver;
+  const text = needsDriver
+    ? 'An Orbit is plugged in, but Windows needs a driver to use it. Choose Install the USB driver for the Orbit; ' +
+      'Windows asks for permission first.'
+    : devices.length === 0
+      ? 'No Orbit is connected yet. Connect it with a USB cable.'
+      : devices.length === 1 ? `Found: ${describe(devices[0])}.` : `Found ${devices.length} devices.`;
   setStatus(text);
   announce(text);
   updateButtons();
@@ -213,6 +219,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     run('pair', { address: $('pair-address').value, code: $('pair-code').value }, $('pair')));
   $('connect').addEventListener('click', () => run('connect', { address: $('connect-address').value }, $('connect')));
   $('allow-usb').addEventListener('click', () => run('allow_usb', {}, $('allow-usb')));
+  $('usb-driver').addEventListener('click', () => run('install_usb_driver', {}, $('usb-driver')));
   await listen('progress', (event) => {
     addProgress(event.payload);
     if (event.payload.kind === 'done' || event.payload.kind === 'stopped') {
