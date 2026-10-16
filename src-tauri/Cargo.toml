@@ -33,3 +33,5 @@ windows-sys = { version = "0.61", features = [
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ssip-client-async = "0.19"
+# The same GIO as Tauri's GTK uses, for Orca's D-Bus service.
+gio = "0.18"

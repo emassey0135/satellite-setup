@@ -1,8 +1,9 @@
-//! Speaking through speech-dispatcher, on Linux while Orca is running. Orca doesn't hear WebKitGTK's live regions,
-//! which the window uses everywhere else (tested with polite, assertive, atomic, alert and status regions), but it
-//! speaks through speech-dispatcher, as these messages then do. One connection is kept for the installer's run, so the
-//! messages arrive in order from one client; if it fails, the window falls back to its live region, and the next
-//! message connects again.
+//! Saying messages for Orca, on Linux. Orca doesn't hear WebKitGTK's live regions, which the window uses everywhere else
+//! (tested with polite, assertive, atomic, alert and status regions). Recent versions of Orca (50 does) present a message they are
+//! given over D-Bus, with the user's own voice and settings and on a braille display, so that comes first. For older
+//! Orca, the message goes to speech-dispatcher, which Orca speaks through: one connection is kept for the installer's
+//! run, so the messages arrive in order from one client, and if it fails, the next message connects again. If neither
+//! works, the window falls back to its live region.
 
 #[cfg(target_os = "linux")]
 mod imp {
@@ -17,6 +18,9 @@ mod imp {
 
     /// Says `text`, and returns whether it did: only while Orca is running, so that nobody else hears it.
     pub fn say(text: &str) -> bool {
+        if present_with_orca(text) {
+            return true;
+        }
         if !Command::new("pgrep").args(["-x", "orca"]).output().is_ok_and(|o| o.status.success()) {
             return false;
         }
@@ -38,6 +42,27 @@ mod imp {
     /// Connects as speech-dispatcher's own clients (such as spd-say) do: to SPEECHD_ADDRESS if it names a Unix socket
     /// (as when the system shares one speech-dispatcher, such as with the login screen), else to the default socket in
     /// the user's runtime folder, starting speech-dispatcher there if it isn't running and auto-spawn is allowed.
+    /// Has Orca present `text` through its D-Bus service (org.gnome.Orca.Service, in recent versions), which only a running
+    /// Orca provides.
+    fn present_with_orca(text: &str) -> bool {
+        use gio::glib::{ToVariant, VariantTy};
+        let Ok(bus) = gio::bus_get_sync(gio::BusType::Session, gio::Cancellable::NONE) else { return false };
+        bus.call_sync(
+            Some("org.gnome.Orca.Service"),
+            "/org/gnome/Orca/Service",
+            "org.gnome.Orca.Service",
+            "PresentMessage",
+            Some(&(text,).to_variant()),
+            Some(VariantTy::new("(b)").unwrap()),
+            gio::DBusCallFlags::NO_AUTO_START,
+            2000,
+            gio::Cancellable::NONE,
+        )
+        .ok()
+        .and_then(|reply| reply.get::<(bool,)>())
+        .is_some_and(|(presented,)| presented)
+    }
+
     /// SPEECHD_ADDRESS, from the environment, or else from /etc/environment, where a system-wide speech-dispatcher is
     /// usually named, for sessions that don't read that file.
     fn address() -> Option<String> {
