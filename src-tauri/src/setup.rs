@@ -213,6 +213,9 @@ pub fn undo(adb: &Adb, serialno: &str, report: &dyn Fn(Progress)) {
         report(stopped(format!("The Orbit couldn't be put back: {}", restored.text.trim())));
         return;
     }
+    // Backups made before the restore script did this itself still need it: setting the device up again must make a
+    // new backup, of how it is now.
+    adb.root(&serial, "rm -rf /data/adb/satellite\n");
     adb.on(&serial, &["uninstall", LAUNCHER]);
     report(Progress {
         kind: "done",
