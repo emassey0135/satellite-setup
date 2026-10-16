@@ -163,7 +163,9 @@ async fn install_usb_driver(tools: State<'_, Tools>) -> Result<String, String> {
         .await
         .map_err(|e| e.to_string())?;
     }
-    Ok("The USB driver is installed. Satellite Setup looks for the Orbit again.".into())
+    Ok("The USB driver is installed. Satellite Setup looks for the Orbit again; if it isn't found, unplug the Orbit and \
+        plug it in again."
+        .into())
 }
 
 /// Says `text` through speech-dispatcher on Linux while Orca is running ([`speech`]), and returns whether it did.
