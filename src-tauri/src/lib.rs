@@ -139,12 +139,29 @@ async fn install_usb_driver(tools: State<'_, Tools>) -> Result<String, String> {
     Ok("The USB driver is installed. Satellite Setup looks for the Orbit again.".into())
 }
 
+/// Says `text` through speech-dispatcher on Linux while Orca is running, and returns whether it did. Orca doesn't hear
+/// WebKitGTK's live regions, which the window uses everywhere else.
+#[tauri::command]
+fn speak(text: String) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        use std::process::Command;
+        let orca = Command::new("pgrep").args(["-x", "orca"]).output().is_ok_and(|o| o.status.success());
+        // Priority "message" queues behind what is being said, rather than cutting it off or being cut off.
+        if orca && Command::new("spd-say").args(["-P", "message", "-N", "Satellite Setup", "--", &text]).spawn().is_ok() {
+            return true;
+        }
+    }
+    let _ = text;
+    false
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Tools::default())
         .invoke_handler(tauri::generate_handler![prepare, devices, pair, connect, set_up, undo, allow_usb,
-            usb_driver_needed, install_usb_driver])
+            usb_driver_needed, install_usb_driver, speak])
         .run(tauri::generate_context!())
         .expect("error while running Satellite Setup");
 }

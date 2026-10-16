@@ -11,17 +11,36 @@ let devices = [];
 let shownDevices = '';
 let busy = false;
 
+const unsaid = [];
+let saying = false;
+
 /**
- * Says `text` with the screen reader, without moving the focus. The text goes into a live region that is emptied
- * shortly after, so that the same message can be said again, and each message is a new element, which screen readers
- * notice more reliably than changed text.
+ * Says `text` with the screen reader, without moving the focus. Messages are said one at a time, each put in the live
+ * region alone, as a new element, which screen readers notice more reliably than changed text: with several messages
+ * there at once, NVDA and VoiceOver sometimes read them all again. On Linux with Orca, which doesn't hear WebKitGTK's
+ * live regions, they go through speech-dispatcher instead.
  */
 function announce(text) {
-  const region = $('announcer');
-  const message = document.createElement('div');
-  message.textContent = text;
-  region.appendChild(message);
-  setTimeout(() => message.remove(), 10000);
+  unsaid.push(text);
+  if (!saying) sayNext();
+}
+
+async function sayNext() {
+  const text = unsaid.shift();
+  if (text === undefined) {
+    saying = false;
+    return;
+  }
+  saying = true;
+  if (!await invoke('speak', { text }).catch(() => false)) {
+    const region = $('announcer');
+    region.replaceChildren();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const message = document.createElement('div');
+    message.textContent = text;
+    region.appendChild(message);
+  }
+  setTimeout(sayNext, 400);
 }
 
 function setStatus(text) {
