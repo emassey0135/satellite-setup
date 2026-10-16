@@ -1,6 +1,7 @@
-# Builds Satellite Setup for macOS, Windows and Linux (as an AppImage) on every push and pull request. Pushes to main are published as
-# the "dev" pre-release, and a tag such as v1.2.3, which must match the version in src-tauri/tauri.conf.json, as a
-# release. The builds aren't signed yet, so macOS and Windows warn the first time one is opened.
+# Builds Satellite Setup for macOS (one app for Apple silicon and Intel), Windows (x64 and ARM64) and Linux (an
+# AppImage, for x86_64 and ARM) on every push and pull request. Pushes to main are published as the "dev" pre-release,
+# and a tag such as v1.2.3, which must match the version in src-tauri/tauri.conf.json, as a release. The builds aren't
+# signed yet, so macOS and Windows warn the first time one is opened.
 name: Build
 
 on:
@@ -23,9 +24,14 @@ jobs:
             os: macos-latest
             target: universal-apple-darwin
             bundles: dmg
-          - name: windows
+          - name: windows-x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
+            bundles: nsis
+          # Native, as Windows 10 on ARM can't run x64 programs.
+          - name: windows-arm64
+            os: windows-11-arm
+            target: aarch64-pc-windows-msvc
             bundles: nsis
           - name: linux-x86_64
             os: ubuntu-22.04
