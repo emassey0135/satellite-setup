@@ -12,8 +12,16 @@ use crate::adb::Adb;
 use crate::device::{self, LAUNCHER};
 
 const PAYLOAD: &str = "/data/local/tmp/satellite";
+/// Where what the installer downloaded goes: setup checks these as it checks its own downloads (signatures and
+/// checksums), unlike the user's own files in PAYLOAD.
+const DOWNLOADED: &str = "/data/local/tmp/satellite/downloaded";
 const LOG: &str = "/data/data/dev.emassey0135.satellite.launcher/files/setup.log";
 const LAUNCHER_URL: &str = "https://github.com/emassey0135/satellite-launcher/releases/latest/download/satellite-launcher.apk";
+// The same as setup downloads on the device (SetupSteps in the launcher).
+const LSPOSED_URL: &str = "https://github.com/LSPosed/LSPosed/releases/download/v1.9.2/LSPosed-v1.9.2-7024-zygisk-release.zip";
+const LSPOSED_VERSION: u32 = 7024;
+const HOOK_URL: &str = "https://github.com/emassey0135/satellite-hook/releases/latest/download/satellite-hook.apk";
+const BACKTALK_URL: &str = "https://github.com/trypsynth/backtalk/releases/download/dev/backtalk.apk";
 
 /// The user's choices.
 #[derive(Deserialize)]
@@ -76,11 +84,13 @@ fn start(adb: &Adb, serialno: &str, options: &Options, announcements: &mut Optio
         }
     }
 
+    download_for_setup(adb, &serial, options, report);
+
     let launcher = match &options.launcher_apk {
         Some(path) => path.clone(),
         None => {
             report(info("Downloading the Satellite Launcher."));
-            download(LAUNCHER_URL)?
+            download(LAUNCHER_URL, "satellite-launcher.apk").map_err(|e| format!("Couldn't download the Satellite Launcher: {e}"))?
         }
     };
     report(info("Installing the Satellite Launcher."));
@@ -196,13 +206,57 @@ fn log_lines(adb: &Adb, serial: &str) -> Option<Vec<String>> {
     Some(out.text.lines().take_while(|l| *l != "end-of-log").map(str::to_string).collect())
 }
 
-fn download(url: &str) -> Result<PathBuf, String> {
-    let bytes = reqwest::blocking::get(url)
+/// Downloads on this computer what setup would otherwise download on the Orbit, and copies it there, so that the Orbit
+/// needn't be online. Only what the Orbit lacks, and the user didn't give a file for, is downloaded. If a download fails
+/// here, the Orbit downloads it itself, if it is online; setup says if it isn't.
+fn download_for_setup(adb: &Adb, serial: &str, options: &Options, report: &dyn Fn(Progress)) {
+    let lsposed = adb.root(serial, "cat /data/adb/modules/zygisk_lsposed/module.prop 2>/dev/null\n").text;
+    let lsposed_installed = lsposed.lines()
+        .find_map(|l| l.trim().strip_prefix("versionCode="))
+        .and_then(|v| v.trim().parse::<u32>().ok())
+        .is_some_and(|v| v >= LSPOSED_VERSION);
+    let hook_installed = adb.shell(serial, "pm path dev.emassey0135.satellite.hook").text.contains("package:");
+    let backtalk_ready = adb.shell(serial, "cmd package query-activities -a fyi.quin.backtalk.action.ASK_BRAILLE_DISPLAY")
+        .text.contains("packageName=fyi.quin.backtalk");
+    let wanted = [
+        (!lsposed_installed && options.lsposed_zip.is_none(), LSPOSED_URL, "lsposed.zip", "LSPosed"),
+        (!hook_installed && options.hook_apk.is_none(), HOOK_URL, "satellite-hook.apk", "the Satellite hook"),
+        (!backtalk_ready && options.backtalk_apk.is_none(), BACKTALK_URL, "backtalk.apk", "Backtalk"),
+    ];
+    let mut got = Vec::new();
+    for (needed, url, name, what) in wanted {
+        if !needed {
+            continue;
+        }
+        report(info(format!("Downloading {what} on this computer.")));
+        match download(url, name) {
+            Ok(path) => got.push((path, name)),
+            Err(e) => report(info(format!("Couldn't download {what} on this computer ({e}); the Orbit downloads it \
+                                           itself, if it is connected to the internet."))),
+        }
+    }
+    if got.is_empty() {
+        return;
+    }
+    report(info("Copying the downloads to the Orbit."));
+    adb.shell(serial, &format!("mkdir -p {DOWNLOADED}"));
+    for (path, name) in got {
+        adb.push(serial, &path, &format!("{DOWNLOADED}/{name}"));
+        let _ = std::fs::remove_file(&path);
+    }
+}
+
+/// Downloads `url` to a file named `name` in this computer's temporary folder.
+fn download(url: &str, name: &str) -> Result<PathBuf, String> {
+    let mut response = reqwest::blocking::Client::builder()
+        .timeout(None)
+        .build()
+        .and_then(|c| c.get(url).send())
         .and_then(|r| r.error_for_status())
-        .and_then(|r| r.bytes())
-        .map_err(|e| format!("Couldn't download the Satellite Launcher: {e}"))?;
-    let path = std::env::temp_dir().join("satellite-launcher.apk");
-    std::fs::write(&path, &bytes).map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?;
+    let path = std::env::temp_dir().join(format!("satellite-{name}"));
+    let mut file = std::fs::File::create(&path).map_err(|e| e.to_string())?;
+    std::io::copy(&mut response, &mut file).map_err(|e| e.to_string())?;
     Ok(path)
 }
 
