@@ -35,8 +35,20 @@ mod imp {
         said.is_ok()
     }
 
+    /// Connects as speech-dispatcher's own clients (such as spd-say) do: to SPEECHD_ADDRESS if it names a Unix socket
+    /// (as when the system shares one speech-dispatcher, such as with the login screen), else to the default socket in
+    /// the user's runtime folder, starting speech-dispatcher there if it isn't running.
     fn connect() -> ClientResult<Client<UnixStream>> {
-        let mut client = fifo::synchronous::Builder::new().timeout(Duration::from_secs(5)).build()?;
+        let mut builder = fifo::synchronous::Builder::new();
+        match std::env::var("SPEECHD_ADDRESS").ok().and_then(|a| a.strip_prefix("unix_socket:").map(str::to_string)) {
+            Some(path) => {
+                builder.path(path);
+            }
+            None => {
+                builder.with_spawn()?;
+            }
+        }
+        let mut client = builder.timeout(Duration::from_secs(5)).build()?;
         client
             .set_client_name(ClientName::new("satellite-setup", "progress"))?
             .check_client_name_set()?
