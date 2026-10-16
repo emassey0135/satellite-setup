@@ -32,7 +32,12 @@ async fn prepare(app: AppHandle, tools: State<'_, Tools>) -> Result<(), String> 
         .map_err(|e| e.to_string())??;
     let adb = Adb::new(path);
     let started = adb.clone();
-    tauri::async_runtime::spawn_blocking(move || started.run(&["start-server"])).await.map_err(|e| e.to_string())?;
+    let out = tauri::async_runtime::spawn_blocking(move || started.run(&["start-server"]))
+        .await
+        .map_err(|e| e.to_string())?;
+    if !out.ok {
+        return Err(format!("Android's adb couldn't run on this computer: {}", out.text.trim()));
+    }
     *tools.0.lock().unwrap() = Some(adb);
     Ok(())
 }

@@ -231,7 +231,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   try {
     await invoke('prepare');
   } catch (e) {
-    setStatus(`${e} Check that this computer is connected to the internet, then open Satellite Setup again.`);
+    setStatus(String(e));
+    announce(String(e));
     return;
   }
   setStatus('Looking for the Orbit.');
