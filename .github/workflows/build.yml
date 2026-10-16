@@ -1,5 +1,5 @@
-# Builds Satellite Setup for macOS (one app for Apple silicon and Intel), Windows (x64 and ARM64) and Linux (an
-# AppImage, for x86_64 and ARM) on every push and pull request. Pushes to main are published as the "dev" pre-release,
+# Builds Satellite Setup for macOS (one app for Apple silicon and Intel), Windows (the program itself, for x64 and
+# ARM64) and Linux (an AppImage, for x86_64 and ARM) on every push and pull request. Pushes to main are published as the "dev" pre-release,
 # and a tag such as v1.2.3, which must match the version in src-tauri/tauri.conf.json, as a release. The builds aren't
 # signed yet, so macOS and Windows warn the first time one is opened.
 name: Build
@@ -24,23 +24,27 @@ jobs:
             os: macos-latest
             target: universal-apple-darwin
             bundles: dmg
+            asset: satellite-setup-macos.dmg
+          # Windows gets the program itself, which runs as it is: there's nothing to install.
           - name: windows-x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            bundles: nsis
+            asset: satellite-setup-windows-x64.exe
           # Native, as Windows 10 on ARM can't run x64 programs.
           - name: windows-arm64
             os: windows-11-arm
             target: aarch64-pc-windows-msvc
-            bundles: nsis
+            asset: satellite-setup-windows-arm64.exe
           - name: linux-x86_64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             bundles: appimage
+            asset: satellite-setup-linux-x86_64.AppImage
           - name: linux-aarch64
             os: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
             bundles: appimage
+            asset: satellite-setup-linux-aarch64.AppImage
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -77,14 +81,24 @@ jobs:
 
       - name: Build
         shell: bash
-        run: npx --yes @tauri-apps/cli@2 build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+        run: |
+          if [ -n "${{ matrix.bundles }}" ]; then
+            npx --yes @tauri-apps/cli@2 build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          else
+            npx --yes @tauri-apps/cli@2 build --target ${{ matrix.target }} --no-bundle
+          fi
 
+      # Under a name without the version, so that the latest release's link to each stays the same.
       - name: Collect
         shell: bash
         run: |
           mkdir out
-          find src-tauri/target/${{ matrix.target }}/release/bundle \
-            \( -name '*.dmg' -o -name '*-setup.exe' -o -name '*.AppImage' \) -exec cp {} out/ \;
+          release=src-tauri/target/${{ matrix.target }}/release
+          case "${{ matrix.asset }}" in
+            *.exe) built=$release/satellite-setup.exe ;;
+            *) built=$(find $release/bundle \( -name '*.dmg' -o -name '*.AppImage' \) | head -1) ;;
+          esac
+          cp "$built" "out/${{ matrix.asset }}"
           ls -l out
 
       - uses: actions/upload-artifact@v7
