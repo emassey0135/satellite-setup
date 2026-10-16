@@ -1,4 +1,4 @@
-# Builds Satellite Setup for macOS, Windows and Linux on every push and pull request. Pushes to main are published as
+# Builds Satellite Setup for macOS, Windows and Linux (as an AppImage) on every push and pull request. Pushes to main are published as
 # the "dev" pre-release, and a tag such as v1.2.3, which must match the version in src-tauri/tauri.conf.json, as a
 # release. The builds aren't signed yet, so macOS and Windows warn the first time one is opened.
 name: Build
@@ -30,11 +30,11 @@ jobs:
           - name: linux-x86_64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            bundles: appimage,deb
+            bundles: appimage
           - name: linux-aarch64
             os: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
-            bundles: appimage,deb
+            bundles: appimage
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -78,7 +78,7 @@ jobs:
         run: |
           mkdir out
           find src-tauri/target/${{ matrix.target }}/release/bundle \
-            \( -name '*.dmg' -o -name '*-setup.exe' -o -name '*.AppImage' -o -name '*.deb' \) -exec cp {} out/ \;
+            \( -name '*.dmg' -o -name '*-setup.exe' -o -name '*.AppImage' \) -exec cp {} out/ \;
           ls -l out
 
       - uses: actions/upload-artifact@v7
