@@ -1,8 +1,21 @@
 //! Finding Orbits connected to this computer, and what state each is in.
 
+use std::collections::HashMap;
+use std::sync::Mutex;
+
 use serde::Serialize;
 
 use crate::adb::Adb;
+
+/// Devices already checked, by adb's name for them. Checking takes root, which Magisk announces on the device each
+/// time, so a device is checked only when it appears, when it is connected differently, or when [`forget_checks`] says
+/// it has changed.
+static CHECKED: Mutex<Option<HashMap<String, Device>>> = Mutex::new(None);
+
+/// Checks every device again the next time they are listed, as after setting one up or undoing setup.
+pub fn forget_checks() {
+    *CHECKED.lock().unwrap() = None;
+}
 
 pub const LAUNCHER: &str = "dev.emassey0135.satellite.launcher";
 
@@ -27,6 +40,8 @@ pub struct Device {
 /// Every device adb can see, checked as far as its state allows.
 pub fn list(adb: &Adb) -> Vec<Device> {
     let out = adb.run(&["devices", "-l"]);
+    let mut checked = CHECKED.lock().unwrap();
+    let previous = checked.take().unwrap_or_default();
     let mut devices = Vec::new();
     for line in out.text.lines().skip(1) {
         let mut words = line.split_whitespace();
@@ -53,10 +68,19 @@ pub fn list(adb: &Adb) -> Vec<Device> {
             set_up: false,
         };
         if device.state == "device" {
-            check(adb, &mut device);
+            match previous.get(serial) {
+                Some(known) => {
+                    device.serialno = known.serialno.clone();
+                    device.orbit = known.orbit;
+                    device.root = known.root;
+                    device.set_up = known.set_up;
+                }
+                None => check(adb, &mut device),
+            }
         }
         devices.push(device);
     }
+    *checked = Some(devices.iter().filter(|d| d.state == "device").map(|d| (d.serial.clone(), d.clone())).collect());
     devices
 }
 

@@ -66,7 +66,10 @@ async fn connect(tools: State<'_, Tools>, address: String) -> Result<String, Str
 #[tauri::command]
 fn set_up(app: AppHandle, tools: State<'_, Tools>, serialno: String, options: setup::Options) -> Result<(), String> {
     let adb = tools.adb()?;
-    std::thread::spawn(move || setup::run(&adb, &serialno, &options, &|p| { let _ = app.emit("progress", p); }));
+    std::thread::spawn(move || {
+        setup::run(&adb, &serialno, &options, &|p| { let _ = app.emit("progress", p); });
+        device::forget_checks();
+    });
     Ok(())
 }
 
@@ -74,7 +77,10 @@ fn set_up(app: AppHandle, tools: State<'_, Tools>, serialno: String, options: se
 #[tauri::command]
 fn undo(app: AppHandle, tools: State<'_, Tools>, serialno: String) -> Result<(), String> {
     let adb = tools.adb()?;
-    std::thread::spawn(move || setup::undo(&adb, &serialno, &|p| { let _ = app.emit("progress", p); }));
+    std::thread::spawn(move || {
+        setup::undo(&adb, &serialno, &|p| { let _ = app.emit("progress", p); });
+        device::forget_checks();
+    });
     Ok(())
 }
 

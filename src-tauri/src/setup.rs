@@ -43,12 +43,20 @@ fn stopped(text: impl Into<String>) -> Progress { Progress { kind: "stopped", te
 
 /// Sets Satellite up on the device with serial number `serialno`, telling `report` how it goes.
 pub fn run(adb: &Adb, serialno: &str, options: &Options, report: &dyn Fn(Progress)) {
-    if let Err(message) = start(adb, serialno, options, report) {
+    // Magisk announces each root command on the device, and following setup takes one every few seconds, so its
+    // announcements for adb's shell are off while setup runs, and put back as they were afterwards.
+    let mut announcements = None;
+    let result = start(adb, serialno, options, &mut announcements, report);
+    if let (Some(previous), Some(serial)) = (announcements, device::find(adb, serialno)) {
+        adb.root(&serial, &format!("magisk --sqlite \"UPDATE policies SET notification={previous} WHERE uid=2000\"\n"));
+    }
+    if let Err(message) = result {
         report(stopped(message));
     }
 }
 
-fn start(adb: &Adb, serialno: &str, options: &Options, report: &dyn Fn(Progress)) -> Result<(), String> {
+fn start(adb: &Adb, serialno: &str, options: &Options, announcements: &mut Option<u32>, report: &dyn Fn(Progress))
+         -> Result<(), String> {
     let serial = device::find(adb, serialno).ok_or("The Orbit isn't connected any more.")?;
 
     let files = [
@@ -94,8 +102,13 @@ fn start(adb: &Adb, serialno: &str, options: &Options, report: &dyn Fn(Progress)
         .and_then(|s| s.parse().ok())
         .ok_or("Couldn't find the Satellite Launcher after installing it.")?;
     let granted = adb.root(&serial, &format!(
-        "magisk --sqlite \"REPLACE INTO policies (uid,policy,until,logging,notification) VALUES({uid},2,0,1,0)\"\n\
+        "magisk --sqlite \"SELECT notification FROM policies WHERE uid=2000\"\n\
+         magisk --sqlite \"UPDATE policies SET notification=0 WHERE uid=2000\"\n\
+         magisk --sqlite \"REPLACE INTO policies (uid,policy,until,logging,notification) VALUES({uid},2,0,1,0)\"\n\
          magisk --sqlite \"SELECT policy FROM policies WHERE uid={uid}\"\n"));
+    *announcements = granted.text.lines()
+        .find_map(|l| l.trim().strip_prefix("notification="))
+        .and_then(|n| n.parse().ok());
     if !granted.text.contains("policy=2") {
         return Err("Couldn't give the Satellite Launcher root access in Magisk.".into());
     }
