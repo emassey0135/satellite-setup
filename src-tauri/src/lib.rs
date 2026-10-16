@@ -5,6 +5,7 @@ mod adb;
 mod device;
 mod platform_tools;
 mod setup;
+mod speech;
 pub mod usb_driver;
 
 use std::sync::Mutex;
@@ -139,21 +140,10 @@ async fn install_usb_driver(tools: State<'_, Tools>) -> Result<String, String> {
     Ok("The USB driver is installed. Satellite Setup looks for the Orbit again.".into())
 }
 
-/// Says `text` through speech-dispatcher on Linux while Orca is running, and returns whether it did. Orca doesn't hear
-/// WebKitGTK's live regions, which the window uses everywhere else.
+/// Says `text` through speech-dispatcher on Linux while Orca is running ([`speech`]), and returns whether it did.
 #[tauri::command]
-fn speak(text: String) -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        use std::process::Command;
-        let orca = Command::new("pgrep").args(["-x", "orca"]).output().is_ok_and(|o| o.status.success());
-        // Priority "message" queues behind what is being said, rather than cutting it off or being cut off.
-        if orca && Command::new("spd-say").args(["-P", "message", "-N", "Satellite Setup", "--", &text]).spawn().is_ok() {
-            return true;
-        }
-    }
-    let _ = text;
-    false
+async fn speak(text: String) -> bool {
+    tauri::async_runtime::spawn_blocking(move || speech::say(&text)).await.unwrap_or(false)
 }
 
 pub fn run() {

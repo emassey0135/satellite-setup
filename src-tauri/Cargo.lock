@@ -2887,6 +2887,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "ssip-client-async",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -3284,6 +3285,21 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps",
+]
+
+[[package]]
+name = "ssip"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b81f5ada7d4745722e62f8be4aca56abcf0e0e46e409612ac94a4a3a2b471d39"
+
+[[package]]
+name = "ssip-client-async"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cfbcb0ed774006ab9f14d4595fc02668cd7f5e662a87ff82264e6506238f47f"
+dependencies = [
+ "ssip",
 ]
 
 [[package]]
