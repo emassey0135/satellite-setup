@@ -37,10 +37,21 @@ mod imp {
 
     /// Connects as speech-dispatcher's own clients (such as spd-say) do: to SPEECHD_ADDRESS if it names a Unix socket
     /// (as when the system shares one speech-dispatcher, such as with the login screen), else to the default socket in
-    /// the user's runtime folder, starting speech-dispatcher there if it isn't running.
+    /// the user's runtime folder, starting speech-dispatcher there if it isn't running and auto-spawn is allowed.
+    /// SPEECHD_ADDRESS, from the environment, or else from /etc/environment, where a system-wide speech-dispatcher is
+    /// usually named, for sessions that don't read that file.
+    fn address() -> Option<String> {
+        std::env::var("SPEECHD_ADDRESS").ok().or_else(|| {
+            std::fs::read_to_string("/etc/environment").ok()?.lines().find_map(|line| {
+                let value = line.trim().strip_prefix("SPEECHD_ADDRESS=")?;
+                Some(value.trim_matches(|c| c == '"' || c == '\'').to_string())
+            })
+        })
+    }
+
     fn connect() -> ClientResult<Client<UnixStream>> {
         let mut builder = fifo::synchronous::Builder::new();
-        match std::env::var("SPEECHD_ADDRESS").ok().and_then(|a| a.strip_prefix("unix_socket:").map(str::to_string)) {
+        match address().and_then(|a| a.strip_prefix("unix_socket:").map(str::to_string)) {
             Some(path) => {
                 builder.path(path);
             }
