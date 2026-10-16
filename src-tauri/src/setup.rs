@@ -230,6 +230,9 @@ pub fn undo(adb: &Adb, serialno: &str, report: &dyn Fn(Progress)) {
     // new backup, of how it is now.
     adb.root(&serial, "rm -rf /data/adb/satellite\n");
     adb.on(&serial, &["uninstall", LAUNCHER]);
+    // Orbit's home screen, which the restore made the home app again, in place of the launcher just removed; it also
+    // starts what shows Orbit's power options.
+    adb.shell(&serial, "am start -a android.intent.action.MAIN -c android.intent.category.HOME");
     report(Progress {
         kind: "done",
         text: "The Orbit is back as it was. Restart it with its power button to finish.".into(),
