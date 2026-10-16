@@ -18,6 +18,10 @@ pub fn forget_checks() {
 }
 
 pub const LAUNCHER: &str = "dev.emassey0135.satellite.launcher";
+pub const HOOK: &str = "dev.emassey0135.satellite.hook";
+/// Opens Backtalk's question about whether an app may be its braille display, which only a Backtalk with its braille
+/// display API has.
+pub const ASK_BRAILLE_DISPLAY: &str = "fyi.quin.backtalk.action.ASK_BRAILLE_DISPLAY";
 
 /// A device adb can see.
 #[derive(Serialize, Clone)]

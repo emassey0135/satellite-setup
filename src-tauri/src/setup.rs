@@ -9,13 +9,13 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 use crate::adb::Adb;
-use crate::device::{self, LAUNCHER};
+use crate::device::{self, ASK_BRAILLE_DISPLAY, HOOK, LAUNCHER};
 
 const PAYLOAD: &str = "/data/local/tmp/satellite";
 /// Where what the installer downloaded goes: setup checks these as it checks its own downloads (signatures and
 /// checksums), unlike the user's own files in PAYLOAD.
 const DOWNLOADED: &str = "/data/local/tmp/satellite/downloaded";
-const LOG: &str = "/data/data/dev.emassey0135.satellite.launcher/files/setup.log";
+const LOG: &str = "/data/user/0/dev.emassey0135.satellite.launcher/files/setup.log";
 const LAUNCHER_URL: &str =
     "https://github.com/emassey0135/satellite-launcher/releases/latest/download/satellite-launcher.apk";
 // The same as setup downloads on the device (SetupSteps in the launcher).
@@ -111,21 +111,30 @@ fn start(
 
     download_for_setup(adb, &serial, options, report);
 
-    let launcher = match &options.launcher_apk {
-        Some(path) => path.clone(),
+    let (launcher, downloaded) = match &options.launcher_apk {
+        Some(path) => (path.clone(), false),
         None => {
             report(info("Downloading the Satellite Launcher."));
-            download(LAUNCHER_URL, "satellite-launcher.apk")
-                .map_err(|e| format!("Couldn't download the Satellite Launcher: {e}"))?
+            let path = download(LAUNCHER_URL, "satellite-launcher.apk")
+                .map_err(|e| format!("Couldn't download the Satellite Launcher: {e}"))?;
+            (path, true)
         }
     };
     report(info("Installing the Satellite Launcher."));
     let installed = adb.on(&serial, &["install", "-r", &launcher.to_string_lossy()]);
-    if !installed.text.contains("Success") {
+    if downloaded {
+        let _ = std::fs::remove_file(&launcher);
+    }
+    if installed.text.contains("INSTALL_FAILED_VERSION_DOWNGRADE") {
+        // A newer launcher than this one, such as a development build, is kept; setup updates it from then on.
+        report(info(
+            "The Orbit has a newer Satellite Launcher already, which setup uses.",
+        ));
+    } else if !installed.text.contains("Success") {
         if installed.text.contains("INSTALL_FAILED_UPDATE_INCOMPATIBLE") {
             return Err(
                 "The Orbit has a copy of the Satellite Launcher signed by someone else. Undo Satellite setup, or \
-                        uninstall it, first."
+                 uninstall it, first."
                     .into(),
             );
         }
@@ -147,9 +156,9 @@ fn start(
         &serial,
         &format!(
             "magisk --sqlite \"SELECT notification FROM policies WHERE uid=2000\"\n\
-         magisk --sqlite \"UPDATE policies SET notification=0 WHERE uid=2000\"\n\
-         magisk --sqlite \"REPLACE INTO policies (uid,policy,until,logging,notification) VALUES({uid},2,0,1,0)\"\n\
-         magisk --sqlite \"SELECT policy FROM policies WHERE uid={uid}\"\n"
+             magisk --sqlite \"UPDATE policies SET notification=0 WHERE uid=2000\"\n\
+             magisk --sqlite \"REPLACE INTO policies (uid,policy,until,logging,notification) VALUES({uid},2,0,1,0)\"\n\
+             magisk --sqlite \"SELECT policy FROM policies WHERE uid={uid}\"\n"
         ),
     );
     *announcements = granted
@@ -208,15 +217,13 @@ fn follow(
                 if !asked_for_wireless && since.elapsed() > Duration::from_secs(90) {
                     asked_for_wireless = true;
                     report(info(
-                        "If the Orbit was connected with wireless debugging, turn wireless debugging on again \
-                                 on it once it has started, and connect it again here. Setup carries on on the Orbit \
-                                 either way.",
+                        "If the Orbit was connected with wireless debugging, turn wireless debugging on again on \
+                         it once it has started, and connect it again here. Setup carries on on the Orbit either way.",
                     ));
                 }
                 if since.elapsed() > Duration::from_secs(20 * 60) {
                     return Err(
-                        "The Orbit didn't come back. Setup may still have finished on it; it says so on the \
-                                Orbit."
+                        "The Orbit didn't come back. Setup may still have finished on it; it says so on the Orbit."
                             .into(),
                     );
                 }
@@ -281,14 +288,11 @@ fn download_for_setup(adb: &Adb, serial: &str, options: &Options, report: &dyn F
         .find_map(|l| l.trim().strip_prefix("versionCode="))
         .and_then(|v| v.trim().parse::<u32>().ok())
         .is_some_and(|v| v >= LSPOSED_VERSION);
-    let hook_installed = adb
-        .shell(serial, "pm path dev.emassey0135.satellite.hook")
-        .text
-        .contains("package:");
+    let hook_installed = adb.shell(serial, &format!("pm path {HOOK}")).text.contains("package:");
     let backtalk_ready = adb
         .shell(
             serial,
-            "cmd package query-activities -a fyi.quin.backtalk.action.ASK_BRAILLE_DISPLAY",
+            &format!("cmd package query-activities -a {ASK_BRAILLE_DISPLAY}"),
         )
         .text
         .contains("packageName=fyi.quin.backtalk");
@@ -321,8 +325,8 @@ fn download_for_setup(adb: &Adb, serial: &str, options: &Options, report: &dyn F
         match download(url, name) {
             Ok(path) => got.push((path, name)),
             Err(e) => report(info(format!(
-                "Couldn't download {what} on this computer ({e}); the Orbit downloads it \
-                                           itself, if it is connected to the internet."
+                "Couldn't download {what} on this computer ({e}); the Orbit downloads it itself, if it is \
+                 connected to the internet."
             ))),
         }
     }

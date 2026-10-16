@@ -163,12 +163,14 @@ async fn install_usb_driver(tools: State<'_, Tools>) -> Result<String, String> {
         .await
         .map_err(|e| e.to_string())?;
     }
-    Ok("The USB driver is installed. Satellite Setup looks for the Orbit again; if it isn't found, unplug the Orbit and \
-        plug it in again."
-        .into())
+    Ok(
+        "The USB driver is installed. Satellite Setup looks for the Orbit again; if it isn't found, unplug the Orbit \
+        and plug it in again."
+            .into(),
+    )
 }
 
-/// Says `text` through speech-dispatcher on Linux while Orca is running ([`speech`]), and returns whether it did.
+/// Says `text` for Orca on Linux, through Orca itself or speech-dispatcher ([`speech`]), and returns whether it did.
 #[tauri::command]
 async fn speak(text: String) -> bool {
     tauri::async_runtime::spawn_blocking(move || speech::say(&text))

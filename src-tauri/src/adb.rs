@@ -2,6 +2,10 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicU32, Ordering};
+
+/// Numbers the scripts [`Adb::root`] runs, so that two at once don't share files.
+static SCRIPTS: AtomicU32 = AtomicU32::new(0);
 
 /// What a command printed (its output and errors together) and whether it succeeded.
 pub struct Output {
@@ -56,21 +60,26 @@ impl Adb {
     /// Runs `script` on the device as root. It is copied there and run from the file, so that no quoting is lost on
     /// the way: Magisk's own database has been left unusable by a command whose quotes were.
     pub fn root(&self, serial: &str, script: &str) -> Output {
-        const FILE: &str = "/data/local/tmp/satellite-setup.sh";
-        let local = std::env::temp_dir().join(format!("satellite-setup-{}.sh", std::process::id()));
+        let name = format!(
+            "satellite-setup-{}-{}.sh",
+            std::process::id(),
+            SCRIPTS.fetch_add(1, Ordering::Relaxed)
+        );
+        let remote = format!("/data/local/tmp/{name}");
+        let local = std::env::temp_dir().join(&name);
         if let Err(e) = std::fs::write(&local, script) {
             return Output {
                 ok: false,
                 text: e.to_string(),
             };
         }
-        let pushed = self.push(serial, &local, FILE);
+        let pushed = self.push(serial, &local, &remote);
         let _ = std::fs::remove_file(&local);
         if !pushed.ok {
             return pushed;
         }
-        let out = self.on(serial, &["shell", "su", "-c", "sh", FILE]);
-        self.shell(serial, &format!("rm -f {FILE}"));
+        let out = self.on(serial, &["shell", "su", "-c", "sh", &remote]);
+        self.shell(serial, &format!("rm -f {remote}"));
         out
     }
 

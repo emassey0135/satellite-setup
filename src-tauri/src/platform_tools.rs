@@ -1,5 +1,5 @@
 //! Google's platform-tools, which include adb, downloaded for this computer the first time the installer runs, so that
-//! nothing else has to be installed and it is always Google's current version. Google builds them for Linux only on
+//! nothing else has to be installed. Google builds them for Linux only on
 //! x86_64, so elsewhere on Linux (such as ARM) the system's own adb is used, from the distribution's package.
 
 use std::io::Read;

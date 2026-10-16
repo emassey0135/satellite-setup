@@ -47,8 +47,10 @@ mod imp {
             return Vec::new();
         }
         let units: Vec<u16> = buffer[..size as usize]
-            .chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|&c| u16::from_le_bytes(c))
             .collect();
         units
             .split(|&u| u == 0)

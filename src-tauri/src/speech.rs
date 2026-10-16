@@ -46,9 +46,6 @@ mod imp {
         said.is_ok()
     }
 
-    /// Connects as speech-dispatcher's own clients (such as spd-say) do: to SPEECHD_ADDRESS if it names a Unix socket
-    /// (as when the system shares one speech-dispatcher, such as with the login screen), else to the default socket in
-    /// the user's runtime folder, starting speech-dispatcher there if it isn't running and auto-spawn is allowed.
     /// Has Orca present `text` through its D-Bus service (org.gnome.Orca.Service, in recent versions), which only a
     /// running Orca provides.
     fn present_with_orca(text: &str) -> bool {
@@ -86,6 +83,9 @@ mod imp {
         })
     }
 
+    /// Connects as speech-dispatcher's own clients (such as spd-say) do: to SPEECHD_ADDRESS if it names a Unix socket
+    /// (as when the system shares one speech-dispatcher, such as with the login screen), else to the default socket in
+    /// the user's runtime folder, starting speech-dispatcher there if it isn't running and auto-spawn is allowed.
     fn connect() -> ClientResult<Client<UnixStream>> {
         let mut builder = fifo::synchronous::Builder::new();
         match address().and_then(|a| a.strip_prefix("unix_socket:").map(str::to_string)) {

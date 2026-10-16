@@ -18,7 +18,7 @@ let saying = false;
  * Says `text` with the screen reader, without moving the focus. Messages are said one at a time, each put in the live
  * region alone, as a new element, which screen readers notice more reliably than changed text: with several messages
  * there at once, NVDA and VoiceOver sometimes read them all again. On Linux with Orca, which doesn't hear WebKitGTK's
- * live regions, they go through speech-dispatcher instead.
+ * live regions, they go to Orca itself, or speech-dispatcher, instead (speech.rs).
  */
 function announce(text) {
   unsaid.push(text);
@@ -49,13 +49,13 @@ function setStatus(text) {
 
 /** What a device is, and whether setup can use it. */
 function describe(device) {
-  const kind = device.model.includes('25I') ? 'Orbit Speak' : device.model.includes('LZG403') ? 'Orbit Player' : device.model || 'A device';
+  const kind = device.model.includes('25I') ? 'Orbit Speak' : device.model.includes('LZG403') ? 'Orbit Player' : device.model || 'An Android device';
   const how = device.connection === 'usb' ? 'connected by USB' : 'connected wirelessly';
   switch (device.state) {
     case 'unauthorized':
       return `${kind}, ${how}: waiting for you to allow this computer on it, in the "Allow USB debugging?" question`;
     case 'no permissions':
-      return `A device ${how}, which this computer isn't allowed to use yet`;
+      return `An Android device ${how}, which this computer isn't allowed to use yet`;
     case 'offline':
       return `${kind}, ${how}: not answering`;
     case 'device':
