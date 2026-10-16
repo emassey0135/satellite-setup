@@ -34,12 +34,27 @@ mod imp {
     unsafe fn strings(set: HDEVINFO, device: &mut SP_DEVINFO_DATA, property: u32) -> Vec<String> {
         let mut buffer = vec![0u8; 4096];
         let mut size = 0u32;
-        if SetupDiGetDeviceRegistryPropertyW(set, device, property, null_mut(), buffer.as_mut_ptr(), buffer.len() as u32,
-                                             &mut size) == FALSE {
+        if SetupDiGetDeviceRegistryPropertyW(
+            set,
+            device,
+            property,
+            null_mut(),
+            buffer.as_mut_ptr(),
+            buffer.len() as u32,
+            &mut size,
+        ) == FALSE
+        {
             return Vec::new();
         }
-        let units: Vec<u16> = buffer[..size as usize].chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
-        units.split(|&u| u == 0).filter(|s| !s.is_empty()).map(|s| String::from_utf16_lossy(s).to_lowercase()).collect()
+        let units: Vec<u16> = buffer[..size as usize]
+            .chunks_exact(2)
+            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .collect();
+        units
+            .split(|&u| u == 0)
+            .filter(|s| !s.is_empty())
+            .map(|s| String::from_utf16_lossy(s).to_lowercase())
+            .collect()
     }
 
     /// Calls `each` for every adb interface plugged in that has no driver.
@@ -56,7 +71,9 @@ mod imp {
                 break;
             }
             index += 1;
-            let adb = strings(set, &mut device, SPDRP_COMPATIBLEIDS).iter().any(|id| id == ADB_INTERFACE);
+            let adb = strings(set, &mut device, SPDRP_COMPATIBLEIDS)
+                .iter()
+                .any(|id| id == ADB_INTERFACE);
             if adb && strings(set, &mut device, SPDRP_DRIVER).is_empty() {
                 each(set, &mut device);
             }
@@ -118,8 +135,10 @@ mod imp {
         } else {
             let mut restart = FALSE;
             if DiInstallDevice(null_mut(), set, device, &driver, 0, &mut restart) == FALSE {
-                Err(format!("Windows couldn't install the WinUSB driver (error {}).",
-                            windows_sys::Win32::Foundation::GetLastError()))
+                Err(format!(
+                    "Windows couldn't install the WinUSB driver (error {}).",
+                    windows_sys::Win32::Foundation::GetLastError()
+                ))
             } else {
                 Ok(())
             }

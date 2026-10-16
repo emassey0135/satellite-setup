@@ -16,17 +16,22 @@ fn url() -> &'static str {
 }
 
 fn offline(e: impl std::fmt::Display) -> String {
-    format!("Couldn't download Android's tools ({e}). Check that this computer is connected to the internet, then open \
-             Satellite Setup again.")
+    format!(
+        "Couldn't download Android's tools ({e}). Check that this computer is connected to the internet, then open \
+             Satellite Setup again."
+    )
 }
 
 /// The first `adb` on the PATH.
 fn system_adb() -> Option<PathBuf> {
-    std::env::split_paths(&std::env::var_os("PATH")?).map(|d| d.join("adb")).find(|p| p.is_file())
+    std::env::split_paths(&std::env::var_os("PATH")?)
+        .map(|d| d.join("adb"))
+        .find(|p| p.is_file())
 }
 
 fn adb_in(dir: &Path) -> PathBuf {
-    dir.join("platform-tools").join(if cfg!(windows) { "adb.exe" } else { "adb" })
+    dir.join("platform-tools")
+        .join(if cfg!(windows) { "adb.exe" } else { "adb" })
 }
 
 /// adb, from platform-tools in `dir`, downloaded first if they aren't there yet.
@@ -54,7 +59,8 @@ pub fn ensure(dir: &Path) -> Result<PathBuf, String> {
     // Unpacked beside the final place first, so that a half-unpacked copy is never taken for a whole one.
     let partial = dir.join("platform-tools.partial");
     let _ = std::fs::remove_dir_all(&partial);
-    zip.extract(&partial).map_err(|e| format!("Couldn't unpack Android's tools: {e}"))?;
+    zip.extract(&partial)
+        .map_err(|e| format!("Couldn't unpack Android's tools: {e}"))?;
     let _ = std::fs::remove_dir_all(dir.join("platform-tools"));
     std::fs::rename(partial.join("platform-tools"), dir.join("platform-tools")).map_err(|e| e.to_string())?;
     let _ = std::fs::remove_dir_all(&partial);

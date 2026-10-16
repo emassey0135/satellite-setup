@@ -1,9 +1,9 @@
-//! Saying messages for Orca, on Linux. Orca doesn't hear WebKitGTK's live regions, which the window uses everywhere else
-//! (tested with polite, assertive, atomic, alert and status regions). Recent versions of Orca (50 does) present a message they are
-//! given over D-Bus, with the user's own voice and settings and on a braille display, so that comes first. For older
-//! Orca, the message goes to speech-dispatcher, which Orca speaks through: one connection is kept for the installer's
-//! run, so the messages arrive in order from one client, and if it fails, the next message connects again. If neither
-//! works, the window falls back to its live region.
+//! Saying messages for Orca, on Linux. Orca doesn't hear WebKitGTK's live regions, which the window uses everywhere
+//! else (tested with polite, assertive, atomic, alert and status regions). Recent versions of Orca (50 does) present a
+//! message they are given over D-Bus, with the user's own voice and settings and on a braille display, so that comes
+//! first. For older Orca, the message goes to speech-dispatcher, which Orca speaks through: one connection is kept for
+//! the installer's run, so the messages arrive in order from one client, and if it fails, the next message connects
+//! again. If neither works, the window falls back to its live region.
 
 #[cfg(target_os = "linux")]
 mod imp {
@@ -21,7 +21,11 @@ mod imp {
         if present_with_orca(text) {
             return true;
         }
-        if !Command::new("pgrep").args(["-x", "orca"]).output().is_ok_and(|o| o.status.success()) {
+        if !Command::new("pgrep")
+            .args(["-x", "orca"])
+            .output()
+            .is_ok_and(|o| o.status.success())
+        {
             return false;
         }
         let mut client = CLIENT.lock().unwrap();
@@ -31,7 +35,10 @@ mod imp {
         let Some(connected) = client.as_mut() else { return false };
         // Lines are what the protocol sends, and a line of just "." would end the message early.
         let line = text.replace(['\r', '\n'], " ");
-        let said = connected.speak().and_then(|c| c.check_receiving_data()).and_then(|c| c.send_line(&line))
+        let said = connected
+            .speak()
+            .and_then(|c| c.check_receiving_data())
+            .and_then(|c| c.send_line(&line))
             .and_then(|c| c.receive_message_id());
         if said.is_err() {
             *client = None;
@@ -42,11 +49,13 @@ mod imp {
     /// Connects as speech-dispatcher's own clients (such as spd-say) do: to SPEECHD_ADDRESS if it names a Unix socket
     /// (as when the system shares one speech-dispatcher, such as with the login screen), else to the default socket in
     /// the user's runtime folder, starting speech-dispatcher there if it isn't running and auto-spawn is allowed.
-    /// Has Orca present `text` through its D-Bus service (org.gnome.Orca.Service, in recent versions), which only a running
-    /// Orca provides.
+    /// Has Orca present `text` through its D-Bus service (org.gnome.Orca.Service, in recent versions), which only a
+    /// running Orca provides.
     fn present_with_orca(text: &str) -> bool {
         use gio::glib::{ToVariant, VariantTy};
-        let Ok(bus) = gio::bus_get_sync(gio::BusType::Session, gio::Cancellable::NONE) else { return false };
+        let Ok(bus) = gio::bus_get_sync(gio::BusType::Session, gio::Cancellable::NONE) else {
+            return false;
+        };
         bus.call_sync(
             Some("org.gnome.Orca.Service"),
             "/org/gnome/Orca/Service",
@@ -67,10 +76,13 @@ mod imp {
     /// usually named, for sessions that don't read that file.
     fn address() -> Option<String> {
         std::env::var("SPEECHD_ADDRESS").ok().or_else(|| {
-            std::fs::read_to_string("/etc/environment").ok()?.lines().find_map(|line| {
-                let value = line.trim().strip_prefix("SPEECHD_ADDRESS=")?;
-                Some(value.trim_matches(|c| c == '"' || c == '\'').to_string())
-            })
+            std::fs::read_to_string("/etc/environment")
+                .ok()?
+                .lines()
+                .find_map(|line| {
+                    let value = line.trim().strip_prefix("SPEECHD_ADDRESS=")?;
+                    Some(value.trim_matches(|c| c == '"' || c == '\'').to_string())
+                })
         })
     }
 

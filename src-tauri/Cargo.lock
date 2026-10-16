@@ -2884,6 +2884,7 @@ dependencies = [
 name = "satellite-setup"
 version = "0.1.0"
 dependencies = [
+ "gio",
  "reqwest",
  "serde",
  "serde_json",

@@ -28,9 +28,15 @@ impl Adb {
             Ok(out) => {
                 let mut text = String::from_utf8_lossy(&out.stdout).into_owned();
                 text.push_str(&String::from_utf8_lossy(&out.stderr));
-                Output { ok: out.status.success(), text }
+                Output {
+                    ok: out.status.success(),
+                    text,
+                }
             }
-            Err(e) => Output { ok: false, text: e.to_string() },
+            Err(e) => Output {
+                ok: false,
+                text: e.to_string(),
+            },
         }
     }
 
@@ -53,7 +59,10 @@ impl Adb {
         const FILE: &str = "/data/local/tmp/satellite-setup.sh";
         let local = std::env::temp_dir().join(format!("satellite-setup-{}.sh", std::process::id()));
         if let Err(e) = std::fs::write(&local, script) {
-            return Output { ok: false, text: e.to_string() };
+            return Output {
+                ok: false,
+                text: e.to_string(),
+            };
         }
         let pushed = self.push(serial, &local, FILE);
         let _ = std::fs::remove_file(&local);

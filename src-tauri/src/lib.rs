@@ -20,7 +20,11 @@ struct Tools(Mutex<Option<Adb>>);
 
 impl Tools {
     fn adb(&self) -> Result<Adb, String> {
-        self.0.lock().unwrap().clone().ok_or_else(|| "Android's tools aren't ready yet.".to_string())
+        self.0
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or_else(|| "Android's tools aren't ready yet.".to_string())
     }
 }
 
@@ -37,7 +41,10 @@ async fn prepare(app: AppHandle, tools: State<'_, Tools>) -> Result<(), String> 
         .await
         .map_err(|e| e.to_string())?;
     if !out.ok {
-        return Err(format!("Android's adb couldn't run on this computer: {}", out.text.trim()));
+        return Err(format!(
+            "Android's adb couldn't run on this computer: {}",
+            out.text.trim()
+        ));
     }
     *tools.0.lock().unwrap() = Some(adb);
     Ok(())
@@ -46,7 +53,9 @@ async fn prepare(app: AppHandle, tools: State<'_, Tools>) -> Result<(), String> 
 #[tauri::command]
 async fn devices(tools: State<'_, Tools>) -> Result<Vec<device::Device>, String> {
     let adb = tools.adb()?;
-    tauri::async_runtime::spawn_blocking(move || device::list(&adb)).await.map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || device::list(&adb))
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Pairs with a device's wireless debugging: the address and code it shows under "Pair device with pairing code".
@@ -56,7 +65,11 @@ async fn pair(tools: State<'_, Tools>, address: String, code: String) -> Result<
     let out = tauri::async_runtime::spawn_blocking(move || adb.run(&["pair", address.trim(), code.trim()]))
         .await
         .map_err(|e| e.to_string())?;
-    if out.text.contains("Successfully paired") { Ok("Paired.".into()) } else { Err(out.text.trim().to_string()) }
+    if out.text.contains("Successfully paired") {
+        Ok("Paired.".into())
+    } else {
+        Err(out.text.trim().to_string())
+    }
 }
 
 /// Connects to a device's wireless debugging, at the address it shows under Wireless debugging.
@@ -66,7 +79,11 @@ async fn connect(tools: State<'_, Tools>, address: String) -> Result<String, Str
     let out = tauri::async_runtime::spawn_blocking(move || adb.run(&["connect", address.trim()]))
         .await
         .map_err(|e| e.to_string())?;
-    if out.text.contains("connected to") { Ok("Connected.".into()) } else { Err(out.text.trim().to_string()) }
+    if out.text.contains("connected to") {
+        Ok("Connected.".into())
+    } else {
+        Err(out.text.trim().to_string())
+    }
 }
 
 /// Sets Satellite up on the device with serial number `serialno`; progress comes as "progress" events.
@@ -74,7 +91,9 @@ async fn connect(tools: State<'_, Tools>, address: String) -> Result<String, Str
 fn set_up(app: AppHandle, tools: State<'_, Tools>, serialno: String, options: setup::Options) -> Result<(), String> {
     let adb = tools.adb()?;
     std::thread::spawn(move || {
-        setup::run(&adb, &serialno, &options, &|p| { let _ = app.emit("progress", p); });
+        setup::run(&adb, &serialno, &options, &|p| {
+            let _ = app.emit("progress", p);
+        });
         device::forget_checks();
     });
     Ok(())
@@ -85,7 +104,9 @@ fn set_up(app: AppHandle, tools: State<'_, Tools>, serialno: String, options: se
 fn undo(app: AppHandle, tools: State<'_, Tools>, serialno: String) -> Result<(), String> {
     let adb = tools.adb()?;
     std::thread::spawn(move || {
-        setup::undo(&adb, &serialno, &|p| { let _ = app.emit("progress", p); });
+        setup::undo(&adb, &serialno, &|p| {
+            let _ = app.emit("progress", p);
+        });
         device::forget_checks();
     });
     Ok(())
@@ -98,7 +119,8 @@ async fn allow_usb() -> Result<String, String> {
     #[cfg(target_os = "linux")]
     {
         let script = "printf '%s\\n' 'SUBSYSTEM==\"usb\", ATTR{idVendor}==\"0e8d\", MODE=\"0660\", TAG+=\"uaccess\"' \
-                      > /etc/udev/rules.d/51-satellite-orbit.rules && udevadm control --reload-rules && udevadm trigger";
+                      > /etc/udev/rules.d/51-satellite-orbit.rules \
+                      && udevadm control --reload-rules && udevadm trigger";
         let out = tauri::async_runtime::spawn_blocking(move || {
             std::process::Command::new("pkexec").args(["sh", "-c", script]).output()
         })
@@ -118,13 +140,17 @@ async fn allow_usb() -> Result<String, String> {
 /// Whether Windows needs the WinUSB driver for a plugged-in device's adb interface (always false elsewhere).
 #[tauri::command]
 async fn usb_driver_needed() -> bool {
-    tauri::async_runtime::spawn_blocking(usb_driver::needed).await.unwrap_or(false)
+    tauri::async_runtime::spawn_blocking(usb_driver::needed)
+        .await
+        .unwrap_or(false)
 }
 
 /// Assigns Windows' WinUSB driver to the Orbit's adb interface, after Windows asks the user for permission.
 #[tauri::command]
 async fn install_usb_driver(tools: State<'_, Tools>) -> Result<String, String> {
-    let installed = tauri::async_runtime::spawn_blocking(usb_driver::install_elevated).await.map_err(|e| e.to_string())??;
+    let installed = tauri::async_runtime::spawn_blocking(usb_driver::install_elevated)
+        .await
+        .map_err(|e| e.to_string())??;
     if installed == 0 {
         return Err("No device needed the driver.".into());
     }
@@ -143,15 +169,27 @@ async fn install_usb_driver(tools: State<'_, Tools>) -> Result<String, String> {
 /// Says `text` through speech-dispatcher on Linux while Orca is running ([`speech`]), and returns whether it did.
 #[tauri::command]
 async fn speak(text: String) -> bool {
-    tauri::async_runtime::spawn_blocking(move || speech::say(&text)).await.unwrap_or(false)
+    tauri::async_runtime::spawn_blocking(move || speech::say(&text))
+        .await
+        .unwrap_or(false)
 }
 
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Tools::default())
-        .invoke_handler(tauri::generate_handler![prepare, devices, pair, connect, set_up, undo, allow_usb,
-            usb_driver_needed, install_usb_driver, speak])
+        .invoke_handler(tauri::generate_handler![
+            prepare,
+            devices,
+            pair,
+            connect,
+            set_up,
+            undo,
+            allow_usb,
+            usb_driver_needed,
+            install_usb_driver,
+            speak
+        ])
         .run(tauri::generate_context!())
         .expect("error while running Satellite Setup");
 }
