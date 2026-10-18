@@ -39,6 +39,9 @@ jobs:
             os: windows-11-arm
             target: aarch64-pc-windows-msvc
             asset: satellite-setup-windows-arm64.exe
+          # Linux stays on Ubuntu 22.04 on purpose: a program needs at least the glibc of the system it was built on,
+          # and 22.04's (2.35) lets it run on Ubuntu 22.04, Debian 12 and the like. Moving to a newer Ubuntu would
+          # drop them; move only when GitHub retires this image, and change the README's list then.
           - name: linux-x86_64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
@@ -60,6 +63,12 @@ jobs:
           else
             rustup target add ${{ matrix.target }}
           fi
+
+      # Keeps the compiled libraries between runs, so that only Satellite Setup's own code is built again.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.target }}
 
       - name: Linux libraries
         if: startsWith(matrix.name, 'linux')
